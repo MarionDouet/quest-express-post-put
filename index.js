@@ -35,6 +35,44 @@ const userValidationMiddlewares = [
   check('name').isLength({ min: 2 }),
 ];
 
+app.put(
+  '/api/users/:id',
+  userValidationMiddlewares,
+  (req, res) => {
+    
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(422).json({ errors: errors.array() });
+    }
+    const { id } = req.params;
+    return connection.query(`UPDATE user SET ? WHERE id = ${id}`, req.body, (err, results) => {
+      if (err) {
+        return res.status(500).json({
+          error: err.message,
+          sql: err.sql,
+        });
+      }
+      return connection.query(`SELECT * FROM user WHERE id = ${id}`, id, (err2, records) => {
+        if (err2) {
+          return res.status(500).json({
+            error: err2.message,
+            sql: err2.sql,
+          });
+        }
+        const insertedUser = records[0];
+        const { password, ...user } = insertedUser;
+        const host = req.get('host');
+        const location = `http://${host}${req.url}/${user.id}`;
+        return res
+          .status(200)
+          .set('Location', location)
+          .json(user);
+      });
+    });
+  },
+);
+
+
 app.post(
   '/api/users',
   userValidationMiddlewares,
